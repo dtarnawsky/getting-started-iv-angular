@@ -1,44 +1,56 @@
-import { Injectable, NgZone } from '@angular/core';
-import { Vault, Device, DeviceSecurityType, VaultType } from '@ionic-enterprise/identity-vault';
+import { Injectable, NgZone } from "@angular/core";
+import {
+  Vault,
+  Device,
+  DeviceSecurityType,
+  VaultType,
+  IdentityVaultConfig,
+  BrowserVault,
+} from "@ionic-enterprise/identity-vault";
+import { Platform } from "@ionic/angular";
 
 export interface VaultServiceState {
   session: string;
   isLocked: boolean;
   privacyScreen: boolean;
-  lockType: 'NoLocking' | 'Biometrics' | 'SystemPasscode';
+  lockType: "NoLocking" | "Biometrics" | "SystemPasscode";
   canUseBiometrics: boolean;
   vaultExists: boolean;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: "root" })
 export class VaultService {
+  config: IdentityVaultConfig = {
+    key: "io.ionic.getstartedivangular",
+    type: VaultType.SecureStorage,
+    deviceSecurityType: DeviceSecurityType.None,
+    lockAfterBackgrounded: 2000,
+    shouldClearVaultAfterTooManyFailedAttempts: true,
+    customPasscodeInvalidUnlockAttempts: 2,
+    unlockVaultOnLoad: false,
+  };
+
+  key: string = "sessionData";
+
+  vault: Vault | BrowserVault;
+
   public state: VaultServiceState = {
-    session: '',
+    session: "",
     isLocked: false,
     privacyScreen: false,
-    lockType: 'NoLocking',
+    lockType: "NoLocking",
     canUseBiometrics: false,
-    vaultExists: false
-  };  
+    vaultExists: false,
+  };
 
-  vault: Vault;
-
-  constructor(private ngZone: NgZone) {
+  constructor(private platform: Platform, private ngZone: NgZone) {
     this.init();
   }
 
   async init() {
-    this.vault = new Vault({
-      key: 'io.ionic.getstartedivangular',
-      type: VaultType.SecureStorage,
-      deviceSecurityType: DeviceSecurityType.SystemPasscode,
-      lockAfterBackgrounded: 2000,
-      shouldClearVaultAfterTooManyFailedAttempts: true,
-      customPasscodeInvalidUnlockAttempts: 2,
-      unlockVaultOnLoad: false,
-    });
+    this.vault = this.platform.is("hybrid")
+      ? new Vault(this.config)
+      : new BrowserVault(this.config);
 
     this.vault.onLock(() => {
       this.ngZone.run(() => {
@@ -64,12 +76,12 @@ export class VaultService {
 
   async setSession(value: string): Promise<void> {
     this.state.session = value;
-    await this.vault.setValue('sessionData', value);
+    await this.vault.setValue(this.key, value);
     await this.checkVaultExists();
   }
 
   async restoreSession() {
-    const value = await this.vault.getValue('sessionData');
+    const value = await this.vault.getValue(this.key);
     this.state.session = value;
   }
 
@@ -91,26 +103,26 @@ export class VaultService {
     let deviceSecurityType: DeviceSecurityType;
 
     switch (this.state.lockType) {
-      case 'Biometrics':
+      case "Biometrics":
         type = VaultType.DeviceSecurity;
         deviceSecurityType = DeviceSecurityType.Biometrics;
         break;
 
-      case 'SystemPasscode':
+      case "SystemPasscode":
         type = VaultType.DeviceSecurity;
         deviceSecurityType = DeviceSecurityType.SystemPasscode;
         break;
 
       default:
         type = VaultType.SecureStorage;
-        deviceSecurityType = DeviceSecurityType.SystemPasscode;
+        deviceSecurityType = DeviceSecurityType.None;
     }
     this.vault.updateConfig({ ...this.vault.config, type, deviceSecurityType });
   }
 
   async clearVault() {
     await this.vault.clear();
-    this.state.lockType = 'NoLocking';
+    this.state.lockType = "NoLocking";
     this.state.session = undefined;
     await this.checkVaultExists();
   }

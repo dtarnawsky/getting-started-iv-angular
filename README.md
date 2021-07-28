@@ -81,7 +81,6 @@ This will create a file named `src/app/vault.service.ts`. Within this file, we w
 
 ```TypeScript
 import { Injectable } from '@angular/core';
-import { Capacitor } from '@capacitor/core';
 import {
   BrowserVault,
   DeviceSecurityType,
@@ -89,16 +88,15 @@ import {
   Vault,
   VaultType,
 } from '@ionic-enterprise/identity-vault';
+import { Platform } from "@ionic/angular";
+
 
 export interface VaultServiceState {
   session: string;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class VaultService {
-
   config: IdentityVaultConfig = {
     key: 'io.ionic.getstartedivangular',
     type: VaultType.SecureStorage,
@@ -109,22 +107,22 @@ export class VaultService {
     unlockVaultOnLoad: false,
   };
 
-  key = 'sessionData';
+  key: string = 'sessionData';
 
-  vault: Vault;
+  vault: Vault | BrowserVault;
 
   public state: VaultServiceState = {
     session: ''
   };
 
-  constructor() {
+  constructor(private platform: Platform) {
     this.init();
   }
 
   async init() {
-    this.vault = Capacitor.getPlatform() === 'web'
-      ? new BrowserVault(this.config)
-      : new Vault(config);
+    this.vault = this.platform.is("hybrid")
+      ? new Vault(this.config)
+      : new BrowserVault(this.config);
   }
 
   async setSession(value: string): Promise<void> {
@@ -173,9 +171,9 @@ constructor() {
 }
 
 async init() {
-  this.vault = Capacitor.getPlatform() === 'web'
-    ? new BrowserVault(this.config)
-    : new Vault(config);
+  this.vault = this.platform.is("hybrid")
+      ? new Vault(this.config)
+      : new BrowserVault(this.config);
 }
 ```
 
